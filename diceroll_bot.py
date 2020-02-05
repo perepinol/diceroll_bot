@@ -12,7 +12,9 @@ def log(message):
 
 def get_options():
     """Return the available options for dicerollbot."""
-    return "Use: /v <dice amount> <difficulty>"
+    return "Use:\n" + \
+           "\t* /v <dice amount> - Roll with difficulty 6\n" + \
+           "\t* /v <dice amount> <difficulty>"
 
 
 def vampire_roll(params):
@@ -42,8 +44,10 @@ def vampire_roll(params):
 
     if (len(failures) > len(successes)):
         remove_starting_point = 0
+        amount_str = "Failure"
     else:
         remove_starting_point = len(successes) - len(failures)
+        amount_str = str(remove_starting_point) + " successes"
 
     formatted_rolls = \
         ['**%d**' % (i+1) for i in failures] + \
@@ -51,9 +55,9 @@ def vampire_roll(params):
         [str(i+1) for i in successes[:remove_starting_point]] + \
         ['~~%d~~' % (i+1) for i in successes[remove_starting_point:]]
 
-    return '(%s) = %d successes' % (
+    return '(%s) = %s' % (
         ', '.join(formatted_rolls),
-        len(successes) - len(failures)
+        amount_str
     )
 
 
@@ -71,16 +75,18 @@ if __name__ == '__main__':
     @client.event
     async def on_message(message):
         """Routine to run when receiving message."""
-        if (message.content.startswith('/v ')):
+        if (message.content.startswith('/v')):
             log('Received message: ' + message.content)
             params = message.content.split(' ')
 
             response = get_options()
+            if (len(params) == 2):
+                response = vampire_roll([params[1], 6])
             if (len(params) == 3):
                 response = vampire_roll(params[1:])
             await message.channel.send(response)
 
-            if (response.endswith('-1 successes')):
+            if (response.endswith('Failure')):
                 await message.channel.send('(╯°□°）╯︵ ┻━┻')
 
             log("Message answered")

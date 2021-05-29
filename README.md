@@ -15,3 +15,5 @@ Specifically, at the moment it rolls following the rules for Vampire: the Masque
 2) Add a variable `TOKEN` to the environment containing the bot's token from [Discord developer portal](https://discord.com/developers).
 3) Run the application.
 4) Roll!
+
+A Dockerfile is included too to conveniently build.

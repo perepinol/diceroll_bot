@@ -7,7 +7,7 @@ from datetime import datetime
 
 def log(message):
     """Log a message in console."""
-    print("%s - %s" % (datetime.now(), message))
+    print("%s - %s" % (datetime.now(), message), flush=True)
 
 
 def get_options():
@@ -66,7 +66,6 @@ if __name__ == '__main__':
     if not token:
         log('No TOKEN in environment variables')
         exit(1)
-    print(token)
     client = discord.Client()
 
     @client.event

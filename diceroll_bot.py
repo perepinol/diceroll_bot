@@ -1,8 +1,8 @@
 """A bot to roll Vampire dice in Discord."""
+import os
 import discord
 import random
 from datetime import datetime
-from envreader import Env
 
 
 def log(message):
@@ -25,24 +25,24 @@ def vampire_roll(params):
     except ValueError:
         return get_options()
 
-    if (amount > 10):
+    if amount > 10:
         return 'Too many dice!'
-    if (amount < 1):
+    if amount < 1:
         return 'Too few dice!'
-    if (diff < 1):
+    if diff < 1:
         return 'Too easy!'
-    if (diff > 9):
+    if diff > 9:
         return 'Too hard!'
 
-    rolls = [random.randrange(0, 10) for x in range(amount)]
+    rolls = [random.randrange(0, 10) for _ in range(amount)]
     rolls.sort()
     log('Rolled ' + ', '.join([str(roll+1) for roll in rolls]))
 
     failures = list(filter(lambda i: i == 0, rolls))
-    nothing = list(filter(lambda i: i > 0 and i < diff, rolls))
+    nothing = list(filter(lambda i: 0 < i < diff, rolls))
     successes = list(filter(lambda i: i >= diff, rolls))
 
-    if (len(failures) > len(successes)):
+    if len(failures) > len(successes):
         remove_starting_point = 0
         amount_str = "Failure"
     else:
@@ -61,9 +61,12 @@ def vampire_roll(params):
     )
 
 
-ENVIRONMENT = Env()
-
 if __name__ == '__main__':
+    token = os.getenv('TOKEN')
+    if not token:
+        log('No TOKEN in environment variables')
+        exit(1)
+    print(token)
     client = discord.Client()
 
     @client.event
@@ -75,20 +78,20 @@ if __name__ == '__main__':
     @client.event
     async def on_message(message):
         """Routine to run when receiving message."""
-        if (message.content.startswith('/v')):
+        if message.content.startswith('/v'):
             log('Received message: ' + message.content)
             params = message.content.split(' ')
 
             response = get_options()
-            if (len(params) == 2):
+            if len(params) == 2:
                 response = vampire_roll([params[1], 6])
-            if (len(params) == 3):
+            if len(params) == 3:
                 response = vampire_roll(params[1:])
             await message.channel.send(response)
 
-            if (response.endswith('Failure')):
+            if response.endswith('Failure'):
                 await message.channel.send('(╯°□°）╯︵ ┻━┻')
 
             log("Message answered")
 
-    client.run(ENVIRONMENT.get('TOKEN'))
+    client.run(token)

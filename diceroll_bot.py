@@ -13,52 +13,87 @@ def log(message):
 def get_options():
     """Return the available options for dicerollbot."""
     return "Use:\n" + \
-           "\t* /v <dice amount> - Roll with difficulty 6\n" + \
-           "\t* /v <dice amount> <difficulty>"
+           "\t* /r XdY: Roll X dice with Y sides" + \
+           "\t* /v <dice amount> - VtM roll with difficulty 6\n" + \
+           "\t* /v <dice amount> <difficulty> - VtM roll"
+
+
+def roll(amount, faces):
+    rolls = [random.randrange(1, faces + 1) for _ in range(amount)]
+    rolls.sort()
+    log('Rolled ' + ', '.join([str(roll) for roll in rolls]))
+    return rolls
+
+
+def standard_roll(param):
+    """
+    Make a normal dice roll (XdY where X is the amount of dice and Y is the number of sides).
+
+    params[0] = X
+    params[1] = Y
+    """
+    amount, sides = None, None
+    try:
+        roll_params = list(map(lambda x: int(x), param.split('d')))
+        if len(roll_params) == 2:
+            amount, sides = roll_params
+    except ValueError:
+        return [get_options()]
+    if amount < 1:
+        return ['Not enough dice!']
+    if amount > 100:
+        return ['Too many dice!']
+    if sides < 1:
+        return ['Not enough sides!']
+    if sides > 100:
+        return ['Too many sides!']
+    rolls = map(lambda x: str(x), roll(amount, sides))
+    return ['%s: (%s)' % (param, ', '.join(rolls))]
+
 
 
 def vampire_roll(params):
-    """Make a Vampire roll given an amount of dice and difficulty."""
+    """
+    Make a Vampire roll given an amount of dice and difficulty.
+
+    params[0] = amount of dice [1, 10]
+    params[1] = difficulty [2, 10]    
+    """
     try:
-        amount = int(params[0])
-        diff = int(params[1]) - 1
+        amount = params.pop(0)
+        diff = params.pop(0)
     except ValueError:
-        return get_options()
+        return [get_options()]
 
     if amount > 10:
-        return 'Too many dice!'
+        return ['Too many dice!']
     if amount < 1:
-        return 'Too few dice!'
-    if diff < 1:
-        return 'Too easy!'
-    if diff > 9:
-        return 'Too hard!'
+        return ['Not enough dice!']
+    if diff < 2:
+        return ['Too easy!']
+    if diff > 10:
+        return ['Too hard!']
 
-    rolls = [random.randrange(0, 10) for _ in range(amount)]
-    rolls.sort()
-    log('Rolled ' + ', '.join([str(roll+1) for roll in rolls]))
+    rolls = roll(amount, 10)
 
-    failures = list(filter(lambda i: i == 0, rolls))
-    nothing = list(filter(lambda i: 0 < i < diff, rolls))
+    failures = list(filter(lambda i: i == 1, rolls))
+    nothing = list(filter(lambda i: 1 < i < diff, rolls))
     successes = list(filter(lambda i: i >= diff, rolls))
 
-    if len(failures) > len(successes):
-        remove_starting_point = 0
-        amount_str = "Failure"
-    else:
-        remove_starting_point = len(successes) - len(failures)
-        amount_str = str(remove_starting_point) + " successes"
+    net_successes = max(0, len(successes) - len(failures))
 
     formatted_rolls = \
-        ['**%d**' % (i+1) for i in failures] + \
-        ['_%d_' % (i+1) for i in nothing] + \
-        [str(i+1) for i in successes[:remove_starting_point]] + \
-        ['~~%d~~' % (i+1) for i in successes[remove_starting_point:]]
+        ['**%d**' % i for i in failures] + \
+        ['_%d_' % i for i in nothing] + \
+        ['%d' % i for i in successes[:net_successes]] + \
+        ['~~%d~~' % i for i in successes[net_successes:]]
 
-    return '(%s) = %s' % (
+    failure = len(failures) > 0 and len(successes) == 0
+    result = '(%s) = %s' % (
         ', '.join(formatted_rolls),
-        amount_str
+        'Failure' if failure else '%d successes' % net_successes
     )
+    return [result] + (['(╯°□°）╯︵ ┻━┻'] if failure else [])
 
 
 if __name__ == '__main__':
@@ -77,20 +112,32 @@ if __name__ == '__main__':
     @client.event
     async def on_message(message):
         """Routine to run when receiving message."""
-        if message.content.startswith('/v'):
-            log('Received message: ' + message.content)
-            params = message.content.split(' ')
+        if not message.content.startswith('/'):
+            return
+        params = message.content.split(' ')
+        if not len(params):
+            return
 
-            response = get_options()
-            if len(params) == 2:
-                response = vampire_roll([params[1], 6])
-            if len(params) == 3:
-                response = vampire_roll(params[1:])
+        log('Received message: ' + message.content)
+        command = params.pop(0)
+
+        responses = [get_options()]
+        if command == '/d':
+            if len(params) == 1:
+                responses = standard_roll(params.pop(0))
+        elif command == '/v':
+            try:
+                params = list(map(lambda x: int(x), params))
+                if len(params) == 1:
+                    responses = vampire_roll(params + [6])
+                if len(params) == 2:
+                    responses = vampire_roll(params)
+            except ValueError:
+                pass
+
+        for response in responses:
             await message.channel.send(response)
 
-            if response.endswith('Failure'):
-                await message.channel.send('(╯°□°）╯︵ ┻━┻')
-
-            log("Message answered")
+        log("Message answered")
 
     client.run(token)
